@@ -85,7 +85,7 @@ def recommend_resources():
     test_id = request.args.get('test_id', type=int)
     
     if user_id is None or test_id is None:
-        return jsonify({"error": "Please provide user_id and test_id as query parameters"}), 400
+        return jsonify({"error": "Please provid user_id and test_id as query parameters"}), 400
     
     recommendations = get_recommendations(user_id, test_id)
     return jsonify(recommendations)
