@@ -90,6 +90,3 @@ def recommend_resources():
     recommendations = get_recommendations(user_id, test_id)
     return jsonify(recommendations)
 
-# Run the Flask app
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
