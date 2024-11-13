@@ -7,7 +7,7 @@ import ast
 import boto3
 from io import StringIO
 
-app = Flask(__name__)
+application = Flask(__name__)
 
 # Set up the S3 client
 s3 = boto3.client('s3')
@@ -79,7 +79,7 @@ def get_recommendations(user_id, test_id):
     return sorted_resources
 
 # Flask route to provide recommendations based on user_id and test_id
-@app.route('/', methods=['GET'])
+@application.route('/', methods=['GET'])
 def recommend_resources():
     user_id = request.args.get('user_id', type=int)
     test_id = request.args.get('test_id', type=int)
