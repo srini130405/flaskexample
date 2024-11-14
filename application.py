@@ -3,7 +3,6 @@ from flask import Flask, request, jsonify
 import pandas as pd
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
-import ast
 import boto3
 from io import StringIO
 
@@ -30,11 +29,11 @@ df = read_csv_from_s3(bucket_name, file_key)
 resources = ['article1', 'video1', 'exercise1', 'article2', 'video2', 'video3', 'exercise2', 'exercise3', 'exercise4', 'exercise5']
 user_resource_matrix = pd.DataFrame(0, index=df['user_id'].unique(), columns=resources)
 
-# Fill the user-resource matrix with data from the DataFrame
+# Populate the matrix with ratings from the CSV data
 for _, row in df.iterrows():
     user_id = row['user_id']
-    resources_used = ast.literal_eval(row['resources_used'])
-    ratings = ast.literal_eval(row['ratings'])
+    resources_used = row['resources_used'].replace(" ", "").split(';')  # Remove extra spaces and split
+    ratings = list(map(int, row['ratings'].replace(" ", "").split(';')))
     
     for resource, rating in zip(resources_used, ratings):
         if resource in user_resource_matrix.columns:
@@ -42,8 +41,8 @@ for _, row in df.iterrows():
 
 user_resource_matrix = user_resource_matrix.fillna(0)
 
-# Recommendation logic using K-Nearest Neighbors
-def get_recommendations(user_id, test_id):
+# Updated recommendation function
+def recommend_resources(user_id, test_id):
     test_data = df[df['test_id'] == test_id]
     
     if test_data.empty:
@@ -51,13 +50,21 @@ def get_recommendations(user_id, test_id):
     
     relevant_users = test_data['user_id'].unique()
     filtered_user_resource_matrix = user_resource_matrix.loc[relevant_users]
+    
+    if len(filtered_user_resource_matrix) < 2:
+        return {"error": f"Not enough data to make recommendations for test_id {test_id}"}
+    
     user_scores = test_data[['user_id', 'scores']].set_index('user_id').to_dict()['scores']
     
-    knn = NearestNeighbors(n_neighbors=3, metric='cosine')
+    knn = NearestNeighbors(n_neighbors=min(3, len(filtered_user_resource_matrix)), metric='cosine')
     knn.fit(filtered_user_resource_matrix.values)
     
-    target_user_idx = filtered_user_resource_matrix.index.get_loc(user_id)
-    distances, indices = knn.kneighbors(filtered_user_resource_matrix.iloc[target_user_idx].values.reshape(1, -1), n_neighbors=3)
+    try:
+        target_user_idx = filtered_user_resource_matrix.index.get_loc(user_id)
+    except KeyError:
+        return {"error": f"User ID {user_id} not found in the filtered matrix"}
+    
+    distances, indices = knn.kneighbors(filtered_user_resource_matrix.iloc[target_user_idx].values.reshape(1, -1), n_neighbors=min(3, len(filtered_user_resource_matrix)))
     
     recommended_resources = {}
     for idx in indices[0]:
@@ -80,13 +87,14 @@ def get_recommendations(user_id, test_id):
 
 # Flask route to provide recommendations based on user_id and test_id
 @application.route('/', methods=['GET'])
-def recommend_resources():
+def get_recommendations():
     user_id = request.args.get('user_id', type=int)
     test_id = request.args.get('test_id', type=int)
     
     if user_id is None or test_id is None:
         return jsonify({"error": "Please provide user_id and test_id as query parameters"}), 400
     
-    recommendations = get_recommendations(user_id, test_id)
+    recommendations = recommend_resources(user_id, test_id)
     return jsonify(recommendations)
+
 
