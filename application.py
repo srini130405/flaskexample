@@ -4,9 +4,9 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 import boto3
 from io import StringIO
-
+from flask_cors import CORS
 application = Flask(__name__)
-
+CORS(application)
 # Set up the S3 client
 s3 = boto3.client('s3')
 
