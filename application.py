@@ -5,8 +5,10 @@ from sklearn.neighbors import NearestNeighbors
 import boto3
 from io import StringIO
 from flask_cors import CORS
+
 application = Flask(__name__)
 CORS(application)
+
 # Set up the S3 client
 s3 = boto3.client('s3')
 
@@ -32,9 +34,17 @@ user_resource_matrix = pd.DataFrame(0, index=df['user_id'].unique(), columns=res
 for _, row in df.iterrows():
     user_id = row['user_id']
     
-    # Split the semicolon-separated strings into lists
-    resources_used = row['resources_used'].replace(" ", "").split(';')  # Remove extra spaces and split
-    ratings = list(map(int, row['ratings'].replace(" ", "").split(';')))
+    # Split the semicolon-separated strings into lists, with handling for NaN or non-string values
+    if isinstance(row['resources_used'], str):
+        resources_used = row['resources_used'].replace(" ", "").split(';')  # Remove extra spaces and split
+    else:
+        resources_used = []  # If 'resources_used' is NaN or not a string, set to an empty list
+    
+    # Check if 'ratings' is a string, if not, set to an empty list
+    if isinstance(row['ratings'], str):
+        ratings = list(map(int, row['ratings'].replace(" ", "").split(';')))
+    else:
+        ratings = []  # If 'ratings' is NaN or not a string, set to an empty list
     
     # Fill the matrix with the ratings
     for resource, rating in zip(resources_used, ratings):
@@ -103,6 +113,6 @@ def recommend_resources_route():
     
     if test_id is None:
         return jsonify({"error": "Please provide test_id as a query parameter"}), 400
-    
     recommendations = recommend_resources(test_id)
     return jsonify(recommendations)
+
